@@ -1,8 +1,8 @@
 //пример использования платы для чайника
 
-#include <LiquidCrystal.h>
 #include <OneWire.h> 
 #include <DallasTemperature.h>
+#include <LiquidCrystal_1602_RUS.h>
 
 // пины 
 #define RELAY_PIN 7
@@ -13,7 +13,7 @@
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
 const int rs = 5, en = 6, d4 = 12, d5 = 11, d6 = 10, d7 = 9;
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+LiquidCrystal_1602_RUS lcd(rs, en, d4, d5, d6, d7);
 
 //термодатчик
 OneWire tempBus(THERMOMETER_PIN);
@@ -33,12 +33,12 @@ void loop() {
   float t = thermometer.getTempCByIndex(0);
   lcd.print(t);
 
-  digitalWrite(RELAY_PIN, t < 70);
+  digitalWrite(RELAY_PIN, t < 95);
   
   lcd.setCursor(0, 1);
   //чтение кнопки
-  if(!digitalRead(BUTTON_PIN)) lcd.print("button pressed"); // нажатая кнопка подтягивает вход к земле
+  if(!digitalRead(BUTTON_PIN)) lcd.print(L"кнопка нажата"); // нажатая кнопка подтягивает вход к земле
   else lcd.print("                 "); // когда кнопка отпущена вход подтянут к 1
-  delay(300);
+  delay(30);
 }
  
