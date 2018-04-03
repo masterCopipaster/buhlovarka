@@ -1,9 +1,10 @@
 //пример использования платы для чайника
 
 #include <OneWire.h> 
+#include "pitches.h"
 #include <DallasTemperature.h>
-//#include <LiquidCrystal_1602_RUS.h>
-#include <LiquidCrystal.h>
+#include <LiquidCrystal_1602_RUS.h>
+//#include <LiquidCrystal.h>
 #include <TimerOne.h>
 
 // пины 
@@ -17,8 +18,8 @@
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
 const int rs = 5, en = 6, d4 = 12, d5 = 11, d6 = 10, d7 = 9;
-//LiquidCrystal_1602_RUS lcd(rs, en, d4, d5, d6, d7);
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+LiquidCrystal_1602_RUS lcd(rs, en, d4, d5, d6, d7);
+//LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 
 //термодатчик
@@ -37,7 +38,58 @@ int tackts_left;
 bool hold_for_time;
 //----------------------
 
+void recipy1();
+void recipy2();
+void recipy_otl()
+{
+  beep();
+  lcd.setCursor(0, 0);
+  lcd.print(L" ПОСТАВЬТЕ 10   ");
+  lcd.setCursor(0, 1);
+  lcd.print(L"   ПОЖАЛУЙСТА)  ");
+  while(digitalRead(MBUTTON_PIN)){}
+  beep();
+}
+
+//recipy selector
+struct recipy
+{
+  wchar_t * name;
+  void (*func)();
+};
+#define RECIPY_NUM 3
+recipy rec_arr[RECIPY_NUM] = {
+  {L"   ГЛИНТВЕЙН    ", recipy1},
+  {L"      ПУНШ      ", recipy2},
+  {L"     ОТЛ10:)    ", recipy_otl}
+  };
+//---------------
+
+int melody[] = {
+  NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4
+};
+
+// note durations: 4 = quarter note, 8 = eighth note, etc.:
+int noteDurations[] = {
+  4, 8, 8, 4, 4, 4, 4, 4
+};
+
 void setup() {
+  // iterate over the notes of the melody:
+  for (int thisNote = 0; thisNote < 8; thisNote++) {
+
+    // to calculate the note duration, take one second divided by the note type.
+    //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+    int noteDuration = 1000 / noteDurations[thisNote];
+    tone(7, melody[thisNote], noteDuration);
+
+    // to distinguish the notes, set a minimum time between them.
+    // the note's duration + 30% seems to work well:
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    // stop the tone playing:
+    noTone(7);
+  }
   
   pinMode(RELAY_PIN, OUTPUT);
   pinMode(LBUTTON_PIN, INPUT_PULLUP);
@@ -54,8 +106,10 @@ void setup() {
 }
 
 void loop() {
-  recipy1();
+  recipy_selector();
 }
+
+
 
 
 void recipy1()
@@ -103,6 +157,49 @@ void recipy1()
 }
 
 
+void recipy2(){
+  beep();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("PUT 0,5 L TEA & ");
+  lcd.setCursor(0, 1);
+  lcd.print("SPICE PRESS OK"); 
+  
+  while(digitalRead(MBUTTON_PIN)){}
+  
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("WAIT 30 MIN");
+  set_reg(95, 0);
+  reg_waiting_loop();
+  set_reg(60, 1, 1800);
+  reg_waiting_loop();
+
+  beep();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("PUT 0,2 L WINE");
+  lcd.setCursor(0, 1);
+  lcd.print("PRESS OK"); 
+
+  while(digitalRead(MBUTTON_PIN)){}
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("WAIT"); 
+  set_reg(75, 1, 300);
+  
+  reg_waiting_loop();
+
+  beep();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("READY! ADD VODKA!"); 
+  lcd.setCursor(0, 1);
+  lcd.print("HOLDIND TEMP");
+  
+  while(digitalRead(MBUTTON_PIN)){}
+  stop_reg();
+}
 
 
 
@@ -110,6 +207,37 @@ void recipy1()
 
 
 
+
+void recipy_selector()
+{
+  bool lb = digitalRead(LBUTTON_PIN);
+  bool rb = digitalRead(RBUTTON_PIN);
+  bool mb = digitalRead(MBUTTON_PIN);
+
+  lcd.setCursor(0, 1);
+  lcd.print("<      OK      >");
+  
+  
+  int i = 0;
+  while(1)
+  {
+    lcd.setCursor(0, 0);
+    lcd.print(rec_arr[i].name);
+    if(lb && !digitalRead(LBUTTON_PIN)) i--;
+    if(rb && !digitalRead(RBUTTON_PIN)) i++;
+    if(mb && !digitalRead(MBUTTON_PIN))
+    {
+      rec_arr[i].func();
+      break;
+    }
+    lb = digitalRead(LBUTTON_PIN);
+    rb = digitalRead(RBUTTON_PIN);
+    mb = digitalRead(MBUTTON_PIN);
+    if(i < 0) i = RECIPY_NUM - 1;
+    if(i == RECIPY_NUM) i = 0;
+    delay(50);
+  }
+}
 
 
 
@@ -205,7 +333,7 @@ float read_temp()
 
 void beep()
 {
-  for(int i = 0; i < 100; i++)
+  for(int i = 0; i < 60; i++)
   {
     digitalWrite(RELAY_PIN, 1);
     delay(2);
